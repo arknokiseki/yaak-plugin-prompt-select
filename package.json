@@ -3,7 +3,7 @@
   "displayName": "Prompt Select",
   "description": "Show a dropdown prompt and return the selected value",
   "private": true,
-  "version": "0.0.4",
+  "version": "0.0.5",
   "repository": "https://github.com/arknokiseki/yaak-plugin-prompt-select",
   "homepage": "https://github.com/arknokiseki/yaak-plugin-prompt-select",
   "scripts": {
