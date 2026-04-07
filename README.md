@@ -37,23 +37,23 @@ ${prompt_select(label="Environment", title="Select environment", options="dev,st
 ### 1. Basic Dropdown with Custom Labels
 Displays human-readable labels in the UI while injecting the underlying technical value.
 ```text
-${prompt_select(label="Environment", title="Select Environment", options="dev,staging,prod", labels="Development,Staging,Production")}
+${[ prompt_select(label='Environment', title='Select Environment', options=b64'ZGV2LHN0YWdpbmcscHJvZA', labels=b64'RGV2ZWxvcG1lbnQsU3RhZ2luZyxQcm9kdWN0aW9u') ]}
 ```
 
 ### 2. Persistent Selection
 Prompts the user once and caches the selection indefinitely. Useful for static tokens.
 ```text
-${prompt_select(label="Token", title="Select Auth Token", options="token-a,token-b", store="forever")}
+${[ prompt_select(label='Token', title='Select Auth Token', options=b64'dG9rZW4tYSx0b2tlbi1i', store='forever') ]}
 ```
 
 ### 3. Volatile Selection Caching (TTL)
 Caches the user's selection for 1 hour (3600 seconds) before expiring and prompting them again.
 ```text
-${prompt_select(label="Region", title="Select Target Region", options="us-east-1,eu-west-1", store="expire", ttl="3600")}
+${[ prompt_select(label='Region', title='Select Target Region', options=b64'dXMtZWFzdC0xLGV1LXdlc3QtMQ', store='expire', ttl='3600') ]}
 ```
 
 ### 4. Dynamic Options via Nested Templates
 Extracts options dynamically from a previous request using a nested Yaak tag. If the options evaluate to an empty list, it skips the prompt and returns the `defaultValue`.
 ```text
-${prompt_select(label="User ID", title="Select User", options="${[ response.body.path() ]}", defaultValue="123")}
+${[ prompt_select(label='User ID', title='Select User', options=b64'MTIzLDQ1Niw3ODk', defaultValue='123') ]}
 ```
