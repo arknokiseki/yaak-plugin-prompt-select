@@ -55,5 +55,6 @@ ${[ prompt_select(label='Region', title='Select Target Region', options=b64'dXMt
 ### 4. Dynamic Options via Nested Templates
 Extracts options dynamically from a previous request using a nested Yaak tag. If the options evaluate to an empty list, it skips the prompt and returns the `defaultValue`.
 ```text
-${[ prompt_select(label='User ID', title='Select User', options=b64'MTIzLDQ1Niw3ODk', defaultValue='123') ]}
+${[ prompt_select(label='Gender', title='Select Gender', options=b64'TWFsZSwgRmVtYWxlLCBPdGhlcg', defaultValue=b64'JHtbIHJlc3BvbnNlLmJvZHkucGF0aChyZXF1ZXN0PSdycV81OENDUmNVb0VQJywgYmVoYXZpb3I9J3R0bCcsIHR0bD0nMjQwJywgcmVzdWx0PSdmaXJzdCcsIGpvaW49YjY0J0xDQScsIHBhdGg9YjY0J0pDNWtZWFJoTG5WelpYSXVaMlZ1WkdWeScpIF19', store='none', namespace=b64'JHtbY3R4LndvcmtzcGFjZSgpXX0', ttl='0') ]}
 ```
+![prompt select window](assets/demo/スクリーンショット%202026-04-07%20152308.png)
