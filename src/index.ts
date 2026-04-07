@@ -38,27 +38,28 @@ export const plugin: PluginDefinition = {
           return defaultValue || null;
         }
 
-        // Render template expressions inside options, labels, and namespace
+        // Render template expressions inside options, labels, namespace, and key
         let renderedOptions: string;
         let renderedLabels: string;
         let renderedNamespace: string;
+        let renderedKey: string;
         try {
           const rendered = await ctx.templates.render({
             purpose: args.purpose,
-            data: { options: rawOptions, labels: rawLabels, namespace: rawNamespace },
+            data: { options: rawOptions, labels: rawLabels, namespace: rawNamespace, key },
           });
           renderedOptions = String(rendered["options"] ?? "");
           renderedLabels = String(rendered["labels"] ?? "");
           renderedNamespace = String(rendered["namespace"] ?? "");
+          renderedKey = String(rendered["key"] ?? "");
         } catch (e) {
           return String(e);
         }
 
         // Build option pairs { value, label }
         const optionValues = renderedOptions.split(",").map((s) => s.trim()).filter(Boolean);
-        const labelValues = renderedLabels
-          ? renderedLabels.split(",").map((s) => s.trim()).filter(Boolean)
-          : optionValues;
+        const labelList = renderedLabels.split(",").map((s) => s.trim()).filter(Boolean);
+        const labelValues = labelList.length > 0 ? labelList : optionValues;
 
         const len = Math.min(optionValues.length, labelValues.length);
         const selectOptions = Array.from({ length: len }, (_, i) => ({
@@ -67,7 +68,7 @@ export const plugin: PluginDefinition = {
         }));
 
         // Compute store key
-        const storeKey = `${renderedNamespace}:${key || label || title}`;
+        const storeKey = `${renderedNamespace}:${renderedKey || label || title}`;
 
         // Return cached value if applicable
         if (store !== "none") {
@@ -112,8 +113,8 @@ export const plugin: PluginDefinition = {
 
         const selected = String(result["value"] ?? defaultValue ?? "");
 
-        // Persist selected value
-        if (store !== "none") {
+        // Persist selected value (only when the stored value can actually be read back)
+        if (store === "forever" || (store === "expire" && ttl > 0)) {
           await ctx.store.set<StoredValue>(storeKey, { value: selected, storedAt: Date.now() });
         }
 

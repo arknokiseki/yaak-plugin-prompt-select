@@ -145,6 +145,12 @@ describe("prompt.select plugin", () => {
     expect(ctx.prompt.form).not.toHaveBeenCalled();
   });
 
+  test("store=expire: does not write to store when ttl=0", async () => {
+    const ctx = makeCtx({ formResult: { value: "A" } });
+    await fn?.onRender(ctx, makeArgs({ label: "L", title: "T", options: "A,B", store: "expire", namespace: "ns", key: "k" }));
+    expect(ctx.store.set).not.toHaveBeenCalled();
+  });
+
   test("store=expire: re-prompts after TTL expires", async () => {
     const storeData: Record<string, unknown> = { "ns:k": { value: "B", storedAt: Date.now() - 10000 } };
     const ctx = makeCtx({ storeData, formResult: { value: "A" } });
@@ -183,11 +189,33 @@ describe("prompt.select plugin", () => {
     }));
   });
 
+  test("shows options when labels is whitespace-only (falls back to option values as labels)", async () => {
+    const ctx = makeCtx({ formResult: { value: "A" } });
+    const result = await fn?.onRender(ctx, makeArgs({ label: "L", title: "T", options: "A,B", labels: "  ", store: "none" }));
+    expect(result).toBe("A");
+    expect(ctx.prompt.form).toHaveBeenCalledWith(expect.objectContaining({
+      inputs: [expect.objectContaining({
+        options: [{ value: "A", label: "A" }, { value: "B", label: "B" }],
+      })],
+    }));
+  });
+
   test("returns defaultValue when options list is empty", async () => {
     const ctx = makeCtx({ formResult: null });
     const result = await fn?.onRender(ctx, makeArgs({ label: "L", title: "T", options: "", defaultValue: "fallback", store: "none" }));
     expect(result).toBe("fallback");
     expect(ctx.prompt.form).not.toHaveBeenCalled();
+  });
+
+  test("key field is rendered through ctx.templates.render", async () => {
+    const ctx = makeCtx({ formResult: { value: "X" } });
+    await fn?.onRender(ctx, makeArgs({ label: "L", title: "T", options: "X,Y", store: "forever", namespace: "ns", key: "${env.myKey}" }));
+    expect(ctx.templates.render).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ key: "${env.myKey}" }) })
+    );
+    // mock render returns data as-is, so rendered key = "${env.myKey}" here,
+    // but the important thing is it was passed into the render call
+    expect(ctx.store.set).toHaveBeenCalledWith("ns:${env.myKey}", expect.anything());
   });
 
   test("store key falls back: key > label > title", async () => {
