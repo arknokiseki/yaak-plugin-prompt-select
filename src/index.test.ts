@@ -14,7 +14,7 @@ function makeCtx(overrides: Partial<{
   formResult: Record<string, unknown> | null;
 }>= {}): Context {
   const storeData: Record<string, unknown> = overrides.storeData ?? {};
-  const formResult = overrides.formResult !== undefined ? overrides.formResult : { value: "OptionA" };
+  const formResult = overrides.formResult !== undefined ? overrides.formResult : { selection: "OptionA" };
 
   return {
     store: {
@@ -66,7 +66,30 @@ describe("prompt.select plugin", () => {
   });
 
   test("returns selected value from form", async () => {
-    const ctx = makeCtx({ formResult: { value: "Female" } });
+    const ctx = makeCtx({ formResult: { selection: "Female" } });
+    const result = await fn?.onRender(ctx, makeArgs({
+      label: "Gender",
+      title: "Select Gender",
+      options: "Male,Female,Other",
+      store: "none",
+    }));
+    expect(result).toBe("Female");
+  });
+
+  test("falls back to tracked value when form returns empty object (Yaak select bug)", async () => {
+    // Yaak's form select input doesn't include the value in the result.
+    // The dynamic callback on the input tracks the value as a workaround.
+    // Simulate: form returns {} but dynamic was called with the selection.
+    const ctx = makeCtx({ formResult: {} });
+    // The dynamic callback is invoked by Yaak during form interaction,
+    // but in tests we simulate it by having the form mock invoke it.
+    const origForm = ctx.prompt.form as ReturnType<typeof vi.fn>;
+    origForm.mockImplementation(async (args: { inputs: Array<{ dynamic?: Function }> }) => {
+      // Simulate Yaak calling the dynamic callback with the selected value
+      const dynamicFn = args.inputs[0]?.dynamic;
+      if (dynamicFn) dynamicFn(ctx, { values: { selection: "Female" } });
+      return {}; // Yaak returns empty object
+    });
     const result = await fn?.onRender(ctx, makeArgs({
       label: "Gender",
       title: "Select Gender",
@@ -100,7 +123,7 @@ describe("prompt.select plugin", () => {
   });
 
   test("renders options and namespace through ctx.templates.render", async () => {
-    const ctx = makeCtx({ formResult: { value: "1" } });
+    const ctx = makeCtx({ formResult: { selection: "1" } });
     await fn?.onRender(ctx, makeArgs({
       label: "L",
       title: "T",
@@ -114,24 +137,24 @@ describe("prompt.select plugin", () => {
   });
 
   test("store=none: never reads or writes store", async () => {
-    const ctx = makeCtx({ formResult: { value: "A" } });
+    const ctx = makeCtx({ formResult: { selection: "A" } });
     await fn?.onRender(ctx, makeArgs({ label: "L", title: "T", options: "A,B", store: "none" }));
     expect(ctx.store.get).not.toHaveBeenCalled();
     expect(ctx.store.set).not.toHaveBeenCalled();
   });
 
   test("store=forever: writes after first prompt", async () => {
-    const ctx = makeCtx({ formResult: { value: "B" } });
+    const ctx = makeCtx({ formResult: { selection: "B" } });
     await fn?.onRender(ctx, makeArgs({ label: "L", title: "T", options: "A,B", store: "forever", namespace: "ns", key: "k" }));
     expect(ctx.store.set).toHaveBeenCalledWith("ns:k", expect.objectContaining({ value: "B" }));
   });
 
   test("store=forever: returns cached value on second call (skips prompt)", async () => {
     const storeData: Record<string, unknown> = {};
-    const ctx1 = makeCtx({ storeData, formResult: { value: "B" } });
+    const ctx1 = makeCtx({ storeData, formResult: { selection: "B" } });
     await fn?.onRender(ctx1, makeArgs({ label: "L", title: "T", options: "A,B", store: "forever", namespace: "ns", key: "k" }));
 
-    const ctx2 = makeCtx({ storeData, formResult: { value: "A" } });
+    const ctx2 = makeCtx({ storeData, formResult: { selection: "A" } });
     const result = await fn?.onRender(ctx2, makeArgs({ label: "L", title: "T", options: "A,B", store: "forever", namespace: "ns", key: "k" }));
     expect(result).toBe("B");
     expect(ctx2.prompt.form).not.toHaveBeenCalled();
@@ -139,28 +162,28 @@ describe("prompt.select plugin", () => {
 
   test("store=expire: returns cached value within TTL", async () => {
     const storeData: Record<string, unknown> = { "ns:k": { value: "B", storedAt: Date.now() - 1000 } };
-    const ctx = makeCtx({ storeData, formResult: { value: "A" } });
+    const ctx = makeCtx({ storeData, formResult: { selection: "A" } });
     const result = await fn?.onRender(ctx, makeArgs({ label: "L", title: "T", options: "A,B", store: "expire", namespace: "ns", key: "k", ttl: "3600" }));
     expect(result).toBe("B");
     expect(ctx.prompt.form).not.toHaveBeenCalled();
   });
 
   test("store=expire: does not write to store when ttl=0", async () => {
-    const ctx = makeCtx({ formResult: { value: "A" } });
+    const ctx = makeCtx({ formResult: { selection: "A" } });
     await fn?.onRender(ctx, makeArgs({ label: "L", title: "T", options: "A,B", store: "expire", namespace: "ns", key: "k" }));
     expect(ctx.store.set).not.toHaveBeenCalled();
   });
 
   test("store=expire: re-prompts after TTL expires", async () => {
     const storeData: Record<string, unknown> = { "ns:k": { value: "B", storedAt: Date.now() - 10000 } };
-    const ctx = makeCtx({ storeData, formResult: { value: "A" } });
+    const ctx = makeCtx({ storeData, formResult: { selection: "A" } });
     const result = await fn?.onRender(ctx, makeArgs({ label: "L", title: "T", options: "A,B", store: "expire", namespace: "ns", key: "k", ttl: "5" }));
     expect(result).toBe("A");
     expect(ctx.prompt.form).toHaveBeenCalled();
   });
 
   test("uses options as labels when labels not provided", async () => {
-    const ctx = makeCtx({ formResult: { value: "Male" } });
+    const ctx = makeCtx({ formResult: { selection: "Male" } });
     await fn?.onRender(ctx, makeArgs({ label: "L", title: "T", options: "Male,Female", store: "none" }));
     expect(ctx.prompt.form).toHaveBeenCalledWith(expect.objectContaining({
       inputs: [expect.objectContaining({
@@ -170,7 +193,7 @@ describe("prompt.select plugin", () => {
   });
 
   test("uses separate labels when provided", async () => {
-    const ctx = makeCtx({ formResult: { value: "1" } });
+    const ctx = makeCtx({ formResult: { selection: "1" } });
     await fn?.onRender(ctx, makeArgs({ label: "L", title: "T", options: "1,2", labels: "Junior,Senior", store: "none" }));
     expect(ctx.prompt.form).toHaveBeenCalledWith(expect.objectContaining({
       inputs: [expect.objectContaining({
@@ -180,7 +203,7 @@ describe("prompt.select plugin", () => {
   });
 
   test("zips to shorter length when counts differ", async () => {
-    const ctx = makeCtx({ formResult: { value: "1" } });
+    const ctx = makeCtx({ formResult: { selection: "1" } });
     await fn?.onRender(ctx, makeArgs({ label: "L", title: "T", options: "1,2,3", labels: "A,B", store: "none" }));
     expect(ctx.prompt.form).toHaveBeenCalledWith(expect.objectContaining({
       inputs: [expect.objectContaining({
@@ -190,7 +213,7 @@ describe("prompt.select plugin", () => {
   });
 
   test("shows options when labels is whitespace-only (falls back to option values as labels)", async () => {
-    const ctx = makeCtx({ formResult: { value: "A" } });
+    const ctx = makeCtx({ formResult: { selection: "A" } });
     const result = await fn?.onRender(ctx, makeArgs({ label: "L", title: "T", options: "A,B", labels: "  ", store: "none" }));
     expect(result).toBe("A");
     expect(ctx.prompt.form).toHaveBeenCalledWith(expect.objectContaining({
@@ -208,7 +231,7 @@ describe("prompt.select plugin", () => {
   });
 
   test("key field is rendered through ctx.templates.render", async () => {
-    const ctx = makeCtx({ formResult: { value: "X" } });
+    const ctx = makeCtx({ formResult: { selection: "X" } });
     await fn?.onRender(ctx, makeArgs({ label: "L", title: "T", options: "X,Y", store: "forever", namespace: "ns", key: "${env.myKey}" }));
     expect(ctx.templates.render).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ key: "${env.myKey}" }) })
@@ -221,12 +244,12 @@ describe("prompt.select plugin", () => {
   test("store key falls back: key > label > title", async () => {
     // key provided
     const storeData: Record<string, unknown> = {};
-    const ctx = makeCtx({ storeData, formResult: { value: "X" } });
+    const ctx = makeCtx({ storeData, formResult: { selection: "X" } });
     await fn?.onRender(ctx, makeArgs({ label: "MyLabel", title: "MyTitle", options: "X,Y", store: "forever", namespace: "ns", key: "mykey" }));
     expect(ctx.store.set).toHaveBeenCalledWith("ns:mykey", expect.anything());
 
     // no key — falls back to label
-    const ctx2 = makeCtx({ storeData: {}, formResult: { value: "X" } });
+    const ctx2 = makeCtx({ storeData: {}, formResult: { selection: "X" } });
     await fn?.onRender(ctx2, makeArgs({ label: "MyLabel", title: "MyTitle", options: "X,Y", store: "forever", namespace: "ns" }));
     expect(ctx2.store.set).toHaveBeenCalledWith("ns:MyLabel", expect.anything());
   });

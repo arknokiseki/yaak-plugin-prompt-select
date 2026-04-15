@@ -91,6 +91,10 @@ export const plugin: PluginDefinition = {
           return defaultValue || null;
         }
 
+        // Track the selected value via dynamic callback as a workaround
+        // for Yaak not including select input values in the form result.
+        let trackedValue = defaultValue || selectOptions[0]?.value || "";
+
         // Show dropdown prompt
         const result = await ctx.prompt.form({
           id: storeKey,
@@ -98,10 +102,15 @@ export const plugin: PluginDefinition = {
           inputs: [
             {
               type: "select",
-              name: "value",
+              name: "selection",
               label,
               options: selectOptions,
               defaultValue: defaultValue || selectOptions[0]?.value,
+              dynamic: (_ctx: unknown, formArgs: { values: Record<string, unknown> }) => {
+                const v = formArgs.values["selection"];
+                if (v != null) trackedValue = String(v);
+                return null;
+              },
             },
           ],
         });
@@ -111,7 +120,10 @@ export const plugin: PluginDefinition = {
           return defaultValue || null;
         }
 
-        const selected = String(result["value"] ?? defaultValue ?? "");
+        // Use form result if available, otherwise fall back to tracked value
+        const selected = String(
+          result["selection"] ?? trackedValue ?? defaultValue ?? ""
+        );
 
         // Persist selected value (only when the stored value can actually be read back)
         if (store === "forever" || (store === "expire" && ttl > 0)) {
